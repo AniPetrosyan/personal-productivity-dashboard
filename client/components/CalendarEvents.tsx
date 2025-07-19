@@ -51,7 +51,7 @@ export default function CalendarEvents() {
       <h2 className="text-lg font-bold mb-2 text-indigo-600 flex items-center gap-2">
         <span role="img" aria-label="calendar">📅</span> Upcoming Events
       </h2>
-      <div className="space-y-4">
+      <div className="space-y-4 overflow-y-auto" style={{ maxHeight: "260px" }}>
         {Object.entries(grouped).map(([date, events]) => (
           <div key={date}>
             <div className="font-semibold text-indigo-700 mb-1">{date}</div>
