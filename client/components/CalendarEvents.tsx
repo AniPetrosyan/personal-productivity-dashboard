@@ -5,13 +5,18 @@ interface CalendarEvent {
   id: string;
   summary?: string;
   start?: { dateTime?: string; date?: string };
+  end?: { dateTime?: string; date?: string };
   location?: string;
   description?: string;
 }
 
-export default function CalendarEvents() {
+interface CalendarEventsProps {
+  events: CalendarEvent[];
+  setEvents: React.Dispatch<React.SetStateAction<CalendarEvent[]>>;
+}
+
+export default function CalendarEvents({ events, setEvents }: CalendarEventsProps) {
   const { data: session } = useSession();
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -24,14 +29,13 @@ export default function CalendarEvents() {
     })
       .then(res => res.json())
       .then(data => {
-        // Only show upcoming events, limit to 10
         const upcoming = (data.items || [])
           .filter((event: CalendarEvent) => event.start?.dateTime || event.start?.date)
-          .slice(0, 10);
+          .slice(0, 20);
         setEvents(upcoming);
         setLoading(false);
       });
-  }, [session]);
+  }, [session, setEvents]);
 
   if (!session) return <div>Please sign in to view your calendar.</div>;
   if (loading) return <div>Loading events...</div>;

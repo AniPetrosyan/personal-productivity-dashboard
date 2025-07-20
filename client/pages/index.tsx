@@ -10,6 +10,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [tasks, setTasks] = useState<{ text: string; completed: boolean; completedAt?: Date }[]>([]);
   const [newTask, setNewTask] = useState("");
+  const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
 
   const handleSummarize = async () => {
     setLoading(true);
@@ -57,6 +58,49 @@ export default function Home() {
   const aiInsight = mostProductiveDay.count > 0
     ? `You're most productive on ${mostProductiveDay.day}s!`
     : "Complete some tasks to see your productivity insights.";
+
+  function suggestBreakTime(events: any[]) {
+    // Get today's date in YYYY-MM-DD
+    const today = new Date().toISOString().slice(0, 10);
+    // Filter today's events and sort by start time
+    const todaysEvents = events
+      .filter(event => {
+        const start = event.start?.dateTime || event.start?.date;
+        return start && start.startsWith(today);
+      })
+      .sort((a, b) => new Date(a.start.dateTime || a.start.date).getTime() - new Date(b.start.dateTime || b.start.date).getTime());
+
+    if (todaysEvents.length === 0) {
+      return "Suggested break: 12:00 PM - 12:30 PM";
+    }
+
+    // Define workday start/end
+    const workStart = new Date(today + "T09:00:00");
+    const workEnd = new Date(today + "T18:00:00");
+
+    // Find gaps between events
+    let lastEnd = workStart;
+    let bestGap = { start: null, end: null, duration: 0 };
+    for (const event of todaysEvents) {
+      const eventStart = new Date(event.start.dateTime || event.start.date);
+      const gap = (eventStart.getTime() - lastEnd.getTime()) / (1000 * 60); // in minutes
+      if (gap >= 20 && gap > bestGap.duration) {
+        bestGap = { start: new Date(lastEnd), end: new Date(eventStart), duration: gap };
+      }
+      lastEnd = new Date(event.end?.dateTime || event.end?.date || eventStart);
+    }
+    // Check gap after last event
+    const endGap = (workEnd.getTime() - lastEnd.getTime()) / (1000 * 60);
+    if (endGap >= 20 && endGap > bestGap.duration) {
+      bestGap = { start: new Date(lastEnd), end: new Date(workEnd), duration: endGap };
+    }
+
+    if (bestGap.start && bestGap.end) {
+      return `Suggested break: ${bestGap.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${bestGap.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    } else {
+      return "No optimal break found in your schedule today. Try to take a break between meetings!";
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col">
@@ -113,7 +157,7 @@ export default function Home() {
           </section>
           {/* Calendar */}
           <section className="bg-white rounded-xl shadow-lg p-6 flex flex-col h-full w-full min-w-[300px] max-w-[350px]">
-            <CalendarEvents />
+            <CalendarEvents events={calendarEvents} setEvents={setCalendarEvents} />
           </section>
           {/* Tasks */}
           <section className="bg-white rounded-xl shadow-lg p-6 flex flex-col h-full w-full min-w-[300px] max-w-[350px]">
@@ -177,6 +221,13 @@ export default function Home() {
           {/* AI Insight */}
           <section className="bg-white rounded-xl shadow-lg p-6 flex flex-col h-full w-full min-w-[300px] max-w-[350px]">
             <p className="mt-4 text-indigo-700 font-semibold">{aiInsight}</p>
+          </section>
+          {/* AI Break Suggestion */}
+          <section className="bg-white rounded-xl shadow-lg p-6 flex flex-col h-full w-full min-w-[300px] max-w-[350px]">
+            <h2 className="text-lg font-bold mb-4 text-indigo-600">AI Break Suggestion</h2>
+            <p className="text-gray-700">
+              {suggestBreakTime(calendarEvents)}
+            </p>
           </section>
         </div>
       </main>
