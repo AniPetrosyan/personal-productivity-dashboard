@@ -1,17 +1,49 @@
-import { useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import CalendarEvents from '../components/CalendarEvents';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+// Removed: import ReactCanvasConfetti from "react-canvas-confetti";
 
 export default function Home() {
   const { data: session } = useSession();
   const [input, setInput] = useState("");
   const [summary, setSummary] = useState("");
   const [loading, setLoading] = useState(false);
-  const [tasks, setTasks] = useState<{ text: string; completed: boolean; completedAt?: Date }[]>([]);
+  const [tasks, setTasks] = useState<{ text: string; completed: boolean; completedAt?: Date; dueDate?: string }[]>([]);
   const [newTask, setNewTask] = useState("");
+  const [newDueDate, setNewDueDate] = useState("");
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
+  const [theme, setTheme] = useState("default");
+  const [streak, setStreak] = useState(0);
+  // Remove confettiRef, confettiInstance, showCelebration, fireConfetti, getInstance
 
+  useEffect(() => {
+    const days = new Set(
+      tasks
+        .filter(t => t.completed && t.completedAt)
+        .map(t => new Date(t.completedAt!).toDateString())
+    );
+    let currentStreak = 0;
+    let day = new Date();
+    while (days.has(day.toDateString())) {
+      currentStreak++;
+      day.setDate(day.getDate() - 1);
+    }
+    setStreak(currentStreak);
+  }, [tasks]);
+
+  // In completeTask, remove fireConfetti call
+  const completeTask = (idx: number) => {
+    setTasks(tasks => tasks.map((task, i) => {
+      if (i === idx && !task.completed) {
+        // fireConfetti(); // Remove this line
+        return { ...task, completed: true, completedAt: new Date() };
+      }
+      return task;
+    }));
+  };
+
+  // Restore handleSummarize
   const handleSummarize = async () => {
     setLoading(true);
     setSummary("");
@@ -29,22 +61,15 @@ export default function Home() {
     setLoading(false);
   };
 
-  // Add a new task
+  // Restore addTask
   const addTask = () => {
     if (newTask.trim()) {
-      setTasks([...tasks, { text: newTask, completed: false }]);
+      setTasks([...tasks, { text: newTask, completed: false, dueDate: newDueDate || undefined }]);
       setNewTask("");
+      setNewDueDate("");
     }
   };
 
-  // Mark a task as completed
-  const completeTask = (idx: number) => {
-    setTasks(tasks.map((task, i) =>
-      i === idx ? { ...task, completed: true, completedAt: new Date() } : task
-    ));
-  };
-
-  // Prepare data for chart
   const completedTasks = tasks.filter(t => t.completed && t.completedAt);
   const dayAbbr = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const dayCounts: { [day: string]: number } = {};
@@ -60,41 +85,32 @@ export default function Home() {
     : "Complete some tasks to see your productivity insights.";
 
   function suggestBreakTime(events: any[]) {
-    // Get today's date in YYYY-MM-DD
     const today = new Date().toISOString().slice(0, 10);
-    // Filter today's events and sort by start time
     const todaysEvents = events
       .filter(event => {
         const start = event.start?.dateTime || event.start?.date;
         return start && start.startsWith(today);
       })
       .sort((a, b) => new Date(a.start.dateTime || a.start.date).getTime() - new Date(b.start.dateTime || b.start.date).getTime());
-
     if (todaysEvents.length === 0) {
       return "Suggested break: 12:00 PM - 12:30 PM";
     }
-
-    // Define workday start/end
     const workStart = new Date(today + "T09:00:00");
     const workEnd = new Date(today + "T18:00:00");
-
-    // Find gaps between events
     let lastEnd = workStart;
     let bestGap = { start: null, end: null, duration: 0 };
     for (const event of todaysEvents) {
       const eventStart = new Date(event.start.dateTime || event.start.date);
-      const gap = (eventStart.getTime() - lastEnd.getTime()) / (1000 * 60); // in minutes
+      const gap = (eventStart.getTime() - lastEnd.getTime()) / (1000 * 60);
       if (gap >= 20 && gap > bestGap.duration) {
         bestGap = { start: new Date(lastEnd), end: new Date(eventStart), duration: gap };
       }
       lastEnd = new Date(event.end?.dateTime || event.end?.date || eventStart);
     }
-    // Check gap after last event
     const endGap = (workEnd.getTime() - lastEnd.getTime()) / (1000 * 60);
     if (endGap >= 20 && endGap > bestGap.duration) {
       bestGap = { start: new Date(lastEnd), end: new Date(workEnd), duration: endGap };
     }
-
     if (bestGap.start && bestGap.end) {
       return `Suggested break: ${bestGap.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${bestGap.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     } else {
@@ -103,11 +119,30 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col">
+    <div className={
+      `min-h-screen flex flex-col ` +
+      (theme === "default" ? "bg-gradient-to-br from-blue-50 to-indigo-100" : "") +
+      (theme === "focus" ? "bg-gradient-to-br from-gray-800 to-gray-600" : "") +
+      (theme === "sunset" ? "bg-gradient-to-br from-pink-200 via-yellow-100 to-orange-200" : "") +
+      (theme === "ocean" ? "bg-gradient-to-br from-blue-200 via-cyan-100 to-blue-400" : "")
+    }>
+      {/* @ts-ignore */}
+      {/* Remove ReactCanvasConfetti component and the showCelebration overlay */}
       <header className="bg-white shadow p-4 flex items-center justify-between">
         <h1 className="text-3xl font-extrabold text-indigo-700">Personal Productivity Dashboard</h1>
         <div className="flex items-center gap-4">
           <span className="text-gray-500 font-medium">AI Powered</span>
+          {/* Theme Switcher */}
+          <select
+            className="border rounded px-2 py-1 text-sm"
+            value={theme}
+            onChange={e => setTheme(e.target.value)}
+          >
+            <option value="default">Default</option>
+            <option value="focus">Focus Mode</option>
+            <option value="sunset">Sunset</option>
+            <option value="ocean">Ocean</option>
+          </select>
           {!session ? (
             <button
               className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
@@ -128,7 +163,13 @@ export default function Home() {
           )}
         </div>
       </header>
-
+      {streak > 0 && (
+        <div className="flex justify-center mt-4">
+          <span className="bg-yellow-100 text-yellow-800 px-4 py-2 rounded-full font-bold text-lg flex items-center gap-2 shadow">
+            <span role="img" aria-label="fire">🔥</span> Streak: {streak} day{streak > 1 ? "s" : ""}!
+          </span>
+        </div>
+      )}
       <main className="flex-1 w-full max-w-5xl mx-auto p-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 justify-items-center items-stretch mb-8">
           {/* AI Summarizer */}
@@ -162,34 +203,53 @@ export default function Home() {
           {/* Tasks */}
           <section className="bg-white rounded-xl shadow-lg p-6 flex flex-col h-full w-full min-w-[300px] max-w-[350px]">
             <h2 className="text-lg font-bold mb-4 text-indigo-600">Tasks</h2>
-            <div className="flex mb-4">
+            <form
+              className="grid grid-cols-1 gap-2 sm:grid-cols-[2fr_min-content_auto] mb-4 w-full"
+              onSubmit={e => { e.preventDefault(); addTask(); }}
+            >
               <input
-                className="flex-1 border border-indigo-200 rounded-l p-2 focus:ring-2 focus:ring-indigo-300"
+                className="border border-indigo-200 rounded p-2 focus:ring-2 focus:ring-indigo-300 w-full"
                 placeholder="Add a new task..."
                 value={newTask}
                 onChange={e => setNewTask(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && addTask()}
+              />
+              <input
+                type="date"
+                className="border border-indigo-200 rounded p-2 focus:ring-2 focus:ring-indigo-300 w-10 min-w-[40px] text-transparent cursor-pointer"
+                value={newDueDate}
+                onChange={e => setNewDueDate(e.target.value)}
+                placeholder=" "
+                style={{ color: 'transparent' }}
+                onFocus={e => (e.target.style.color = 'black')}
+                onBlur={e => (e.target.style.color = 'transparent')}
               />
               <button
-                className="bg-indigo-600 text-white px-6 py-2 rounded-r font-semibold hover:bg-indigo-700 transition-all"
-                style={{ minWidth: "70px" }}
-                onClick={addTask}
+                type="submit"
+                className="bg-indigo-600 text-white px-6 py-2 rounded font-semibold hover:bg-indigo-700 transition-all w-full"
               >
                 Add
               </button>
-            </div>
+            </form>
             <ul className="space-y-2">
-              {tasks.map((task, idx) => (
-                <li key={idx} className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={task.completed}
-                    onChange={() => completeTask(idx)}
-                    className="mr-2 accent-indigo-600"
-                  />
-                  <span className={task.completed ? "line-through text-gray-400" : "text-gray-800"}>{task.text}</span>
-                </li>
-              ))}
+              {tasks.map((task, idx) => {
+                const isOverdue = task.dueDate && !task.completed && new Date(task.dueDate) < new Date();
+                return (
+                  <li key={idx} className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={task.completed}
+                      onChange={() => completeTask(idx)}
+                      className="mr-2 accent-indigo-600"
+                    />
+                    <span className={task.completed ? "line-through text-gray-400" : isOverdue ? "text-red-600 font-semibold" : "text-gray-800"}>
+                      {task.text}
+                      {task.dueDate && (
+                        <span className={task.completed ? "ml-2 text-xs font-normal italic line-through" : "ml-2 text-xs font-normal italic"}>(Due: {task.dueDate})</span>
+                      )}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           </section>
           {/* Analytics */}
