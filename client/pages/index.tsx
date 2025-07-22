@@ -2,20 +2,21 @@ import React, { useRef, useState, useEffect } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import CalendarEvents from '../components/CalendarEvents';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-// Removed: import ReactCanvasConfetti from "react-canvas-confetti";
+import CalendarHeatmap from 'react-calendar-heatmap';
+import 'react-calendar-heatmap/dist/styles.css';
 
 export default function Home() {
   const { data: session } = useSession();
   const [input, setInput] = useState("");
   const [summary, setSummary] = useState("");
   const [loading, setLoading] = useState(false);
-  const [tasks, setTasks] = useState<{ text: string; completed: boolean; completedAt?: Date; dueDate?: string }[]>([]);
+  const [tasks, setTasks] = useState<{ text: string; completed: boolean; completedAt?: Date; dueDate?: string; note?: string }[]>([]);
   const [newTask, setNewTask] = useState("");
   const [newDueDate, setNewDueDate] = useState("");
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
   const [theme, setTheme] = useState("default");
   const [streak, setStreak] = useState(0);
-  // Remove confettiRef, confettiInstance, showCelebration, fireConfetti, getInstance
+  const [noteModal, setNoteModal] = useState<{ open: boolean; idx: number | null; note: string }>({ open: false, idx: null, note: "" });
 
   useEffect(() => {
     const days = new Set(
@@ -32,11 +33,9 @@ export default function Home() {
     setStreak(currentStreak);
   }, [tasks]);
 
-  // In completeTask, remove fireConfetti call
   const completeTask = (idx: number) => {
     setTasks(tasks => tasks.map((task, i) => {
       if (i === idx && !task.completed) {
-        // fireConfetti(); // Remove this line
         return { ...task, completed: true, completedAt: new Date() };
       }
       return task;
@@ -118,6 +117,19 @@ export default function Home() {
     }
   }
 
+  const openNoteModal = (idx: number) => {
+    setNoteModal({ open: true, idx, note: tasks[idx].note || "" });
+  };
+  const closeNoteModal = () => {
+    setNoteModal({ open: false, idx: null, note: "" });
+  };
+  const saveNote = () => {
+    if (noteModal.idx !== null) {
+      setTasks(tasks => tasks.map((task, i) => i === noteModal.idx ? { ...task, note: noteModal.note } : task));
+    }
+    closeNoteModal();
+  };
+
   return (
     <div className={
       `min-h-screen flex flex-col ` +
@@ -127,7 +139,6 @@ export default function Home() {
       (theme === "ocean" ? "bg-gradient-to-br from-blue-200 via-cyan-100 to-blue-400" : "")
     }>
       {/* @ts-ignore */}
-      {/* Remove ReactCanvasConfetti component and the showCelebration overlay */}
       <header className="bg-white shadow p-4 flex items-center justify-between">
         <h1 className="text-3xl font-extrabold text-indigo-700">Personal Productivity Dashboard</h1>
         <div className="flex items-center gap-4">
@@ -234,19 +245,36 @@ export default function Home() {
               {tasks.map((task, idx) => {
                 const isOverdue = task.dueDate && !task.completed && new Date(task.dueDate) < new Date();
                 return (
-                  <li key={idx} className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={task.completed}
-                      onChange={() => completeTask(idx)}
-                      className="mr-2 accent-indigo-600"
-                    />
-                    <span className={task.completed ? "line-through text-gray-400" : isOverdue ? "text-red-600 font-semibold" : "text-gray-800"}>
-                      {task.text}
-                      {task.dueDate && (
-                        <span className={task.completed ? "ml-2 text-xs font-normal italic line-through" : "ml-2 text-xs font-normal italic"}>(Due: {task.dueDate})</span>
-                      )}
-                    </span>
+                  <li key={idx} className="flex flex-col items-start">
+                    <div className="flex items-center w-full">
+                      <input
+                        type="checkbox"
+                        checked={task.completed}
+                        onChange={() => completeTask(idx)}
+                        className="mr-2 accent-indigo-600"
+                      />
+                      <span className={task.completed ? "line-through text-gray-400" : isOverdue ? "text-red-600 font-semibold" : "text-gray-800"}>
+                        {task.text}
+                        {task.dueDate && (
+                          <span className={task.completed ? "ml-2 text-xs font-normal italic line-through" : "ml-2 text-xs font-normal italic"}>(Due: {task.dueDate})</span>
+                        )}
+                      </span>
+                      <button
+                        className="ml-2 text-indigo-500 hover:text-indigo-700 focus:outline-none"
+                        title={task.note ? "View/Edit Note" : "Add Note"}
+                        onClick={() => openNoteModal(idx)}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.59 14.37a2.25 2.25 0 11-3.18-3.18l5.66-5.66a2.25 2.25 0 113.18 3.18l-5.66 5.66z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 8.25l-9.19 9.19a2.25 2.25 0 01-3.18-3.18l9.19-9.19" />
+                        </svg>
+                      </button>
+                    </div>
+                    {task.note && (
+                      <div className="ml-7 mt-1 text-xs italic text-gray-500 bg-gray-50 rounded px-2 py-1 w-full">
+                        {typeof task.note === 'string' ? task.note : ''}
+                      </div>
+                    )}
                   </li>
                 );
               })}
@@ -294,6 +322,25 @@ export default function Home() {
       <footer className="bg-white shadow-inner p-4 text-center text-gray-400 text-sm">
         &copy; {new Date().getFullYear()} Ani. All rights reserved.
       </footer>
+      {/* Note Modal */}
+      {noteModal.open && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-sm">
+            <h3 className="text-lg font-bold mb-2 text-indigo-700">Task Note</h3>
+            <textarea
+              className="w-full border border-indigo-200 rounded p-2 mb-4 focus:ring-2 focus:ring-indigo-300"
+              rows={4}
+              value={noteModal.note}
+              onChange={e => setNoteModal(modal => ({ ...modal, note: e.target.value }))}
+              placeholder="Add a note or description for this task..."
+            />
+            <div className="flex justify-end gap-2">
+              <button className="px-4 py-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300" onClick={closeNoteModal}>Cancel</button>
+              <button className="px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700" onClick={saveNote}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
