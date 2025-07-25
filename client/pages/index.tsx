@@ -29,6 +29,7 @@ export default function Home() {
     aiSummarizer: true,
     aiInsight: true,
     aiBreak: true,
+    quote: true,
   });
   const [customizeOpen, setCustomizeOpen] = useState(false);
 
@@ -147,6 +148,34 @@ export default function Home() {
 
   // Filtered tasks by category
   const filteredTasks = categoryFilter ? tasks.filter(t => t.category === categoryFilter) : tasks;
+
+  // Motivational quotes from API
+  const [quotes, setQuotes] = useState<{ text: string; author: string | null }[]>([]);
+  const [quoteIdx, setQuoteIdx] = useState(0);
+  const [quotesLoading, setQuotesLoading] = useState(true);
+  const [quotesError, setQuotesError] = useState<string | null>(null);
+  useEffect(() => {
+    setQuotesLoading(true);
+    fetch('https://corsproxy.io/?https://type.fit/api/quotes')
+      .then(res => res.json())
+      .then((data) => {
+        setQuotes(data);
+        setQuoteIdx(Math.floor(Math.random() * data.length));
+        setQuotesLoading(false);
+      })
+      .catch(() => {
+        setQuotesError('Could not load quotes.');
+        setQuotesLoading(false);
+      });
+  }, []);
+  const newQuote = () => {
+    if (!quotes.length) return;
+    let idx;
+    do {
+      idx = Math.floor(Math.random() * quotes.length);
+    } while (idx === quoteIdx && quotes.length > 1);
+    setQuoteIdx(idx);
+  };
 
   return (
     <div className={
@@ -378,6 +407,33 @@ export default function Home() {
               </p>
             </section>
           )}
+          {/* Motivational Quote */}
+          {widgetVisibility.quote && (
+            <section className="bg-gradient-to-br from-pink-100 via-indigo-50 to-blue-100 rounded-2xl shadow-lg p-6 flex flex-col items-center justify-center w-full min-w-[300px] max-w-[500px] mx-auto mb-8 mt-2">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-2xl" role="img" aria-label="sparkle">✨</span>
+                <span className="text-lg font-semibold text-indigo-700">Mental Health Boost</span>
+              </div>
+              {quotesLoading ? (
+                <div className="italic text-gray-400 mb-2">Loading quote...</div>
+              ) : quotesError ? (
+                <div className="italic text-red-400 mb-2">{quotesError}</div>
+              ) : quotes.length > 0 ? (
+                <>
+                  <blockquote className="italic text-center text-lg text-gray-700 mb-2 max-w-xs">“{quotes[quoteIdx].text}”</blockquote>
+                  <div className="text-sm text-indigo-500 mb-3">— {quotes[quoteIdx].author || 'Unknown'}</div>
+                  <button
+                    className="px-4 py-1 rounded-full bg-indigo-100 text-indigo-700 font-medium hover:bg-indigo-200 transition text-sm shadow"
+                    onClick={newQuote}
+                  >
+                    New Quote
+                  </button>
+                </>
+              ) : (
+                <div className="italic text-gray-400 mb-2">No quotes available.</div>
+              )}
+            </section>
+          )}
         </div>
         <div className="flex justify-end mb-4">
           <button
@@ -408,6 +464,7 @@ export default function Home() {
                     {key === 'aiSummarizer' && 'AI Summarizer'}
                     {key === 'aiInsight' && 'AI Insight'}
                     {key === 'aiBreak' && 'AI Break Suggestion'}
+                    {key === 'quote' && 'Motivational Quote'}
                   </label>
                 ))}
               </div>
