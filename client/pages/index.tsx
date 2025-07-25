@@ -156,7 +156,7 @@ export default function Home() {
   const [quotesError, setQuotesError] = useState<string | null>(null);
   useEffect(() => {
     setQuotesLoading(true);
-    fetch('https://corsproxy.io/?https://type.fit/api/quotes')
+    fetch('/api/quotes')
       .then(res => res.json())
       .then((data) => {
         setQuotes(data);
