@@ -6,7 +6,7 @@ import CalendarHeatmap from 'react-calendar-heatmap';
 import 'react-calendar-heatmap/dist/styles.css';
 
 export default function Home() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [input, setInput] = useState("");
   const [summary, setSummary] = useState("");
   const [loading, setLoading] = useState(false);
@@ -176,6 +176,58 @@ export default function Home() {
     } while (idx === quoteIdx && quotes.length > 1);
     setQuoteIdx(idx);
   };
+
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-200 via-blue-100 to-pink-100">
+        <div className="bg-white/80 backdrop-blur-md rounded-3xl shadow-2xl p-10 flex flex-col items-center max-w-md w-full border border-indigo-100">
+          <div className="mb-6">
+            <svg width="64" height="64" fill="none" viewBox="0 0 64 64">
+              <rect width="64" height="64" rx="16" fill="#6366F1"/>
+              <path d="M20 44V24a4 4 0 014-4h16a4 4 0 014 4v20" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M32 36v8" stroke="#fff" strokeWidth="3" strokeLinecap="round"/>
+              <circle cx="32" cy="32" r="3" fill="#fff"/>
+            </svg>
+          </div>
+          <h1 className="text-3xl font-extrabold text-indigo-700 mb-2 text-center">Welcome to Your Productivity Dashboard</h1>
+          <p className="text-gray-600 mb-6 text-center max-w-xs">Sign in with Google to unlock your personalized productivity analytics, calendar insights, and more.</p>
+          <button
+            className="flex items-center gap-3 bg-white border border-gray-200 shadow px-6 py-3 rounded-full text-lg font-semibold text-gray-700 hover:bg-indigo-50 hover:text-indigo-800 transition mb-4"
+            onClick={() => signIn("google")}
+          >
+            <svg width="24" height="24" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <g clipPath="url(#clip0_17_40)">
+                <path d="M47.5 24.5C47.5 22.6 47.3 20.8 47 19H24V29.1H37.4C36.7 32.2 34.7 34.7 31.8 36.4V42.1H39.5C44.1 38 47.5 31.9 47.5 24.5Z" fill="#4285F4"/>
+                <path d="M24 48C30.6 48 36.1 45.9 39.5 42.1L31.8 36.4C29.9 37.6 27.3 38.4 24 38.4C17.7 38.4 12.2 34.3 10.3 28.7H2.3V34.6C5.7 41.1 14.1 48 24 48Z" fill="#34A853"/>
+                <path d="M10.3 28.7C9.8 27.5 9.5 26.2 9.5 24.9C9.5 23.6 9.8 22.3 10.3 21.1V15.2H2.3C0.8 18.1 0 21.4 0 24.9C0 28.4 0.8 31.7 2.3 34.6L10.3 28.7Z" fill="#FBBC05"/>
+                <path d="M24 9.6C27.7 9.6 30.6 11 32.6 12.8L39.7 6.1C36.1 2.8 30.6 0.8 24 0.8C14.1 0.8 5.7 7.7 2.3 14.2L10.3 21.1C12.2 15.5 17.7 9.6 24 9.6Z" fill="#EA4335"/>
+              </g>
+              <defs>
+                <clipPath id="clip0_17_40">
+                  <rect width="48" height="48" fill="white"/>
+                </clipPath>
+              </defs>
+            </svg>
+            Sign in with Google
+          </button>
+          <div className="text-xs text-gray-400 text-center max-w-xs">
+            We only use your Google account to access your calendar and personalize your dashboard. Your data is private and secure.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={
