@@ -16,37 +16,40 @@ interface CalendarEventsProps {
 }
 
 export default function CalendarEvents({ events, setEvents }: CalendarEventsProps) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [loading, setLoading] = useState(false);
 
+  // Only fetch if authenticated
   useEffect(() => {
-    if (!session) return;
+    if (status !== "authenticated") return;
     setLoading(true);
     fetch("/api/calendar")
       .then(res => {
         if (!res.ok) {
-          if (res.status === 401) {
-            throw new Error('Please sign in with Google to access your calendar');
-          }
-          throw new Error('Failed to fetch calendar events');
+          setEvents([]);
+          setLoading(false);
+          return;
         }
         return res.json();
       })
       .then(data => {
-        const upcoming = data
-          .filter((event: CalendarEvent) => event.start?.dateTime || event.start?.date)
-          .slice(0, 20);
-        setEvents(upcoming);
+        if (data) {
+          const upcoming = data
+            .filter(event => event.start?.dateTime || event.start?.date)
+            .slice(0, 20);
+          setEvents(upcoming);
+        }
         setLoading(false);
       })
       .catch(error => {
-        console.error('Error fetching calendar events:', error);
+        console.error("Error fetching calendar events:", error);
         setEvents([]);
         setLoading(false);
       });
-  }, [session, setEvents]);
+  }, [status, setEvents]);
 
-  if (!session) return <div className="text-gray-600">Please sign in with Google to view your calendar.</div>;
+  if (status === "loading") return <div className="text-gray-600">Loading events...</div>;
+  if (status !== "authenticated") return null;
   if (loading) return <div className="text-gray-600">Loading events...</div>;
   if (!events.length) return <div className="text-gray-600">No upcoming events found. Make sure you've granted calendar access.</div>;
 
