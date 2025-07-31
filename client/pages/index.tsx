@@ -48,6 +48,8 @@ export default function Home() {
     setStreak(currentStreak);
   }, [tasks]);
 
+
+
   const completeTask = (idx: number) => {
     setTasks(tasks => tasks.map((task, i) => {
       if (i === idx && !task.completed) {

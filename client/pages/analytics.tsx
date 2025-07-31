@@ -37,6 +37,7 @@ export default function Analytics() {
   const [dateRange, setDateRange] = useState("week"); // week, month, quarter
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [productivityScore, setProductivityScore] = useState(0);
+  const [workLifeBalanceScore, setWorkLifeBalanceScore] = useState(0);
   const [insights, setInsights] = useState<string[]>([]);
 
   // Category keywords for automatic categorization
@@ -235,6 +236,30 @@ export default function Analytics() {
       insights.push("No health activities scheduled. Consider adding exercise or wellness time.");
     }
 
+    // Work-life balance specific insights
+    const totalHoursBalance = timeAnalysis.reduce((sum, t) => sum + t.hours, 0);
+    if (totalHoursBalance > 0) {
+      const workPercentage = (workHours / totalHoursBalance) * 100;
+      const personalPercentage = ((personalHours + healthHours) / totalHoursBalance) * 100;
+      
+      if (workPercentage > 80) {
+        insights.push("Over 80% of your time is work-related. Consider adding more personal activities.");
+      } else if (workPercentage < 30) {
+        insights.push("Work time is below 30%. You might want to increase work activities.");
+      }
+      
+      if (personalPercentage < 15) {
+        insights.push("Personal time is very low. Schedule more activities for yourself.");
+      } else if (personalPercentage > 60) {
+        insights.push("Personal time is high. Make sure you're not neglecting work responsibilities.");
+      }
+      
+      // Ideal balance check
+      if (Math.abs(workPercentage - 60) <= 5 && Math.abs(personalPercentage - 40) <= 5) {
+        insights.push("Excellent work-life balance! You're close to the ideal 60/40 ratio.");
+      }
+    }
+
     // Analyze productivity patterns
     const mostProductiveTime = findMostProductiveTime(events);
     if (mostProductiveTime) {
@@ -295,8 +320,42 @@ export default function Analytics() {
     setProductivityScore(Math.min(score, 100));
   };
 
+  const calculateWorkLifeBalanceScore = () => {
+    // Calculate work-life balance score based on time distribution
+    const workHours = timeAnalysis.find(t => t.category === "Work")?.hours || 0;
+    const personalHours = timeAnalysis.find(t => t.category === "Personal")?.hours || 0;
+    const healthHours = timeAnalysis.find(t => t.category === "Health")?.hours || 0;
+    const meetingHours = timeAnalysis.find(t => t.category === "Meetings")?.hours || 0;
+    const totalHours = timeAnalysis.reduce((sum, t) => sum + t.hours, 0);
+    
+    if (totalHours === 0) {
+      setWorkLifeBalanceScore(0);
+      return;
+    }
+    
+    let score = 0;
+    
+    // Work-life ratio (ideal: 60% work, 40% personal)
+    const workPercentage = (workHours / totalHours) * 100;
+    const personalPercentage = ((personalHours + healthHours) / totalHours) * 100;
+    
+    if (workPercentage >= 40 && workPercentage <= 70) score += 30; // Good work ratio
+    if (personalPercentage >= 20 && personalPercentage <= 50) score += 30; // Good personal time
+    if (healthHours >= 3) score += 20; // Health activities
+    if (personalHours >= 5) score += 15; // Personal activities
+    if (meetingHours <= workHours * 0.4) score += 5; // Not too many meetings
+    
+    // Bonus for balance
+    if (Math.abs(workPercentage - 60) <= 10 && Math.abs(personalPercentage - 40) <= 10) {
+      score += 10; // Close to ideal 60/40 ratio
+    }
+    
+    setWorkLifeBalanceScore(Math.min(score, 100));
+  };
+
   useEffect(() => {
     calculateProductivityScore();
+    calculateWorkLifeBalanceScore();
   }, [timeAnalysis]);
 
   if (!session) {
@@ -387,6 +446,97 @@ export default function Analytics() {
                      "Room for improvement. Focus on time management and breaks."}
                   </p>
                 </div>
+              </div>
+            </div>
+
+            {/* Work-Life Balance Score */}
+            <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-indigo-700">Work-Life Balance Score</h2>
+                <Heart className="text-indigo-600" size={24} />
+              </div>
+              <div className="flex items-center gap-6">
+                <div className="relative">
+                  <svg className="w-24 h-24 transform -rotate-90">
+                    <circle
+                      cx="48"
+                      cy="48"
+                      r="36"
+                      stroke="currentColor"
+                      strokeWidth="8"
+                      fill="transparent"
+                      className="text-gray-200"
+                    />
+                    <circle
+                      cx="48"
+                      cy="48"
+                      r="36"
+                      stroke="currentColor"
+                      strokeWidth="8"
+                      fill="transparent"
+                      strokeDasharray={`${2 * Math.PI * 36}`}
+                      strokeDashoffset={`${2 * Math.PI * 36 * (1 - workLifeBalanceScore / 100)}`}
+                      className="text-green-600 transition-all duration-1000"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-2xl font-bold text-green-700">{workLifeBalanceScore}%</span>
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-2">Your Balance</h3>
+                  <p className="text-gray-600 text-sm">
+                    {workLifeBalanceScore >= 80 ? "Perfect balance! You're maintaining excellent work-life harmony." :
+                     workLifeBalanceScore >= 60 ? "Good balance! You're on the right track." :
+                     workLifeBalanceScore >= 40 ? "Fair balance. Consider adding more personal time." :
+                     "Imbalanced. Focus on creating more personal and health time."}
+                  </p>
+                  <div className="mt-3 flex items-center gap-4 text-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                      <span>Work: {timeAnalysis.find(t => t.category === "Work")?.hours || 0}h</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                      <span>Personal: {timeAnalysis.find(t => t.category === "Personal")?.hours || 0}h</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                      <span>Health: {timeAnalysis.find(t => t.category === "Health")?.hours || 0}h</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Score Comparison */}
+            <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+              <h2 className="text-xl font-bold text-indigo-700 mb-4">Score Comparison</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                  <div className="text-2xl font-bold text-indigo-600 mb-2">{productivityScore}%</div>
+                  <div className="text-sm font-medium text-gray-700 mb-1">Productivity Score</div>
+                  <div className="text-xs text-gray-500">
+                    {productivityScore >= 80 ? "Excellent" :
+                     productivityScore >= 60 ? "Good" :
+                     productivityScore >= 40 ? "Fair" : "Needs Improvement"}
+                  </div>
+                </div>
+                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                  <div className="text-2xl font-bold text-green-600 mb-2">{workLifeBalanceScore}%</div>
+                  <div className="text-sm font-medium text-gray-700 mb-1">Work-Life Balance</div>
+                  <div className="text-xs text-gray-500">
+                    {workLifeBalanceScore >= 80 ? "Perfect Balance" :
+                     workLifeBalanceScore >= 60 ? "Good Balance" :
+                     workLifeBalanceScore >= 40 ? "Fair Balance" : "Needs Balance"}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 p-3 bg-indigo-50 rounded-lg">
+                <p className="text-sm text-indigo-800">
+                  <strong>Tip:</strong> A high productivity score with a low work-life balance score might indicate burnout risk. 
+                  Aim for both scores to be above 60% for optimal performance and well-being.
+                </p>
               </div>
             </div>
 
